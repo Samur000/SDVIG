@@ -5,7 +5,7 @@ import { Modal } from '../../components/Modal';
 import { EmptyState } from '../../components/UI';
 import { useApp } from '../../store/AppContext';
 import { Document } from '../../types';
-import { isThisWeek, formatDate, getDayOfWeek } from '../../utils/date';
+import { isThisWeek, formatDate } from '../../utils/date';
 import { DocumentForm } from './DocumentForm';
 import './ProfilePage.css';
 
@@ -47,34 +47,21 @@ export function ProfilePage() {
     const today = new Date();
     
     state.habits.forEach(habit => {
-      let total = 0;
       let completed = 0;
       
+      // Считаем выполненные дни за последние 7 дней
       for (let i = 0; i < 7; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         const dateStr = formatDate(date);
-        const dayOfWeek = getDayOfWeek(date);
         
-        const freq = habit.frequency;
-        let shouldDo = false;
-        
-        if (freq.type === 'daily') shouldDo = true;
-        else if (freq.type === 'weekdays') shouldDo = ['пн', 'вт', 'ср', 'чт', 'пт'].includes(dayOfWeek);
-        else if (freq.type === 'specific') shouldDo = freq.days.includes(dayOfWeek);
-        else shouldDo = true;
-        
-        if (shouldDo) {
-          total++;
-          if (habit.completedDates.includes(dateStr)) {
-            completed++;
-          }
+        if (habit.records.includes(dateStr)) {
+          completed++;
         }
       }
       
-      if (total > 0) {
-        totalPercent += (completed / total) * 100;
-      }
+      // Процент выполнения за неделю (7 дней)
+      totalPercent += (completed / 7) * 100;
     });
     
     return { avgPercent: Math.round(totalPercent / state.habits.length) };
