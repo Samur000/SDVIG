@@ -87,30 +87,48 @@ function calculateHabitStreak(records: string[]): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  
   const todayStr = today.toISOString().split('T')[0];
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
   
-  // Streak начинается с сегодня или вчера
-  if (!sortedDates.includes(todayStr) && !sortedDates.includes(yesterdayStr)) {
-    return 0;
-  }
-  
-  let streak = 0;
+  // Определяем начальную дату для подсчета streak
   let checkDate = new Date(today);
   
-  // Если сегодня не выполнено, начинаем со вчера
-  if (!sortedDates.includes(todayStr)) {
-    checkDate = new Date(yesterday);
+  // Если сегодня выполнено, начинаем считать с сегодня
+  if (sortedDates.includes(todayStr)) {
+    // Считаем последовательные дни, включая сегодня
+    let streak = 0;
+    let currentDate = new Date(today);
+    
+    for (let i = 0; i < 365; i++) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      if (sortedDates.includes(dateStr)) {
+        streak++;
+        currentDate.setDate(currentDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    
+    return streak > 0 ? streak : 1; // Минимум 1 если сегодня выполнено
   }
   
+  // Если сегодня не выполнено, проверяем вчера
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  
+  if (!sortedDates.includes(yesterdayStr)) {
+    return 0; // Нет streak
+  }
+  
+  // Считаем последовательные дни назад от вчера
+  let streak = 0;
+  let currentDate = new Date(yesterday);
+  
   for (let i = 0; i < 365; i++) {
-    const dateStr = checkDate.toISOString().split('T')[0];
+    const dateStr = currentDate.toISOString().split('T')[0];
     if (sortedDates.includes(dateStr)) {
       streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
+      currentDate.setDate(currentDate.getDate() - 1);
     } else {
       break;
     }

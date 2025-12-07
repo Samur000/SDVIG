@@ -4,17 +4,24 @@ import './Habits.css';
 interface StreakRowProps {
   records: string[];
   color: string;
-  days?: number; // количество отображаемых дней
 }
 
-export function StreakRow({ records, color, days = 30 }: StreakRowProps) {
+export function StreakRow({ records, color, days }: StreakRowProps) {
   const squares = useMemo(() => {
     const result: { date: string; completed: boolean }[] = [];
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    // Начало текущего месяца
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    // Количество дней от начала месяца до сегодня
+    const daysInMonth = Math.floor((today.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Генерируем квадраты от начала месяца до сегодня
+    for (let i = 0; i < daysInMonth; i++) {
+      const date = new Date(monthStart);
+      date.setDate(monthStart.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
       result.push({
         date: dateStr,
@@ -23,7 +30,7 @@ export function StreakRow({ records, color, days = 30 }: StreakRowProps) {
     }
     
     return result;
-  }, [records, days]);
+  }, [records]);
 
   return (
     <div className="streak-row">
