@@ -4,12 +4,12 @@ import { Modal } from '../../components/Modal';
 import { Checkbox, EmptyState, useToast } from '../../components/UI';
 import { useApp } from '../../store/AppContext';
 import { Task, Habit } from '../../types';
-import { getToday, isThisWeek, getDayOfWeek, formatDate } from '../../utils/date';
+import { getToday, formatDate } from '../../utils/date';
 import { vibrate, getRandomMotivation } from '../../utils/feedback';
 import { v4 as uuid } from 'uuid';
 import { TaskForm } from './TaskForm';
-import { HabitForm } from './HabitForm';
 import { BreakdownModal } from './BreakdownModal';
+import { HabitCard, CreateHabitModal } from './habits';
 import './TasksPage.css';
 
 type TabType = 'todo' | 'habits';
@@ -19,14 +19,13 @@ export function TasksPage() {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('todo');
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [showHabitForm, setShowHabitForm] = useState(false);
+  const [showHabitModal, setShowHabitModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [breakdownTask, setBreakdownTask] = useState<Task | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   
   const today = getToday();
-  const todayDayOfWeek = getDayOfWeek(new Date());
   
   // Форматирование даты создания задачи
   const formatCreatedAt = (isoString: string): string => {
@@ -71,15 +70,13 @@ export function TasksPage() {
     const somedayTasks: Task[] = [];
     
     state.tasks.forEach(task => {
-      if (task.parentId) return; // Подзадачи не показываем отдельно
-      if (task.completed) return; // Выполненные в архив
+      if (task.parentId) return;
+      if (task.completed) return;
       
       if (!task.date) {
         somedayTasks.push(task);
       } else if (task.date === today) {
         todayTasks.push(task);
-      } else if (isThisWeek(task.date)) {
-        weekTasks.push(task);
       } else if (task.date > today) {
         weekTasks.push(task);
       }
@@ -92,7 +89,7 @@ export function TasksPage() {
     };
   }, [state.tasks, today]);
   
-  // Архив выполненных задач (отсортированный по времени создания)
+  // Архив выполненных задач
   const archivedTasks = useMemo(() => {
     return sortByCreatedAt(
       state.tasks.filter(task => !task.parentId && task.completed)
@@ -105,76 +102,9 @@ export function TasksPage() {
   
   // Проверка выполнения привычки сегодня
   const isHabitCompletedToday = (habit: Habit) => 
-    habit.completedDates.includes(today);
+    habit.records.includes(today);
   
-  // Нужно ли выполнять привычку сегодня
-  const shouldDoHabitToday = (habit: Habit) => {
-    const freq = habit.frequency;
-    if (freq.type === 'daily') return true;
-    if (freq.type === 'weekdays') {
-      return ['пн', 'вт', 'ср', 'чт', 'пт'].includes(todayDayOfWeek);
-    }
-    if (freq.type === 'specific') {
-      return freq.days.includes(todayDayOfWeek);
-    }
-    return true; // weekly
-  };
-  
-  // Расчёт стрика
-  const calculateStreak = (habit: Habit) => {
-    let streak = 0;
-    let currentDate = new Date();
-    
-    // Если сегодня не выполнено, начинаем со вчера
-    if (!habit.completedDates.includes(formatDate(currentDate))) {
-      currentDate.setDate(currentDate.getDate() - 1);
-    }
-    
-    for (let i = 0; i < 365; i++) {
-      const dateStr = formatDate(currentDate);
-      if (habit.completedDates.includes(dateStr)) {
-        streak++;
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    
-    return streak;
-  };
-  
-  // Процент выполнения за неделю
-  const calculateWeekPercent = (habit: Habit) => {
-    let total = 0;
-    let completed = 0;
-    const now = new Date();
-    
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = formatDate(date);
-      const dayOfWeek = getDayOfWeek(date);
-      
-      const freq = habit.frequency;
-      let shouldDo = false;
-      
-      if (freq.type === 'daily') shouldDo = true;
-      else if (freq.type === 'weekdays') shouldDo = ['пн', 'вт', 'ср', 'чт', 'пт'].includes(dayOfWeek);
-      else if (freq.type === 'specific') shouldDo = freq.days.includes(dayOfWeek);
-      else shouldDo = true;
-      
-      if (shouldDo) {
-        total++;
-        if (habit.completedDates.includes(dateStr)) {
-          completed++;
-        }
-      }
-    }
-    
-    return total > 0 ? Math.round((completed / total) * 100) : 0;
-  };
-  
-  // Обработчики
+  // Обработчики задач
   const handleToggleTask = (id: string) => {
     const task = state.tasks.find(t => t.id === id);
     const willBeCompleted = task && !task.completed;
@@ -203,9 +133,10 @@ export function TasksPage() {
     setEditingTask(null);
   };
   
+  // Обработчики привычек
   const handleToggleHabit = (id: string) => {
     const habit = state.habits.find(h => h.id === id);
-    const willBeCompleted = habit && !habit.completedDates.includes(today);
+    const willBeCompleted = habit && !habit.records.includes(today);
     
     dispatch({ type: 'TOGGLE_HABIT', payload: { id, date: today } });
     
@@ -227,7 +158,7 @@ export function TasksPage() {
     } else {
       dispatch({ type: 'ADD_HABIT', payload: habit });
     }
-    setShowHabitForm(false);
+    setShowHabitModal(false);
     setEditingHabit(null);
   };
   
@@ -398,7 +329,7 @@ export function TasksPage() {
               
               {groupedTasks.weekTasks.length > 0 && (
                 <div className="task-group">
-                  <h3>Эта неделя</h3>
+                  <h3>Запланировано</h3>
                   <div className="task-list">
                     {groupedTasks.weekTasks.map(task => renderTaskItem(task))}
                   </div>
@@ -448,7 +379,7 @@ export function TasksPage() {
         <div className="habits-content">
           <button 
             className="add-item-btn"
-            onClick={() => setShowHabitForm(true)}
+            onClick={() => { setEditingHabit(null); setShowHabitModal(true); }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"/>
@@ -460,7 +391,7 @@ export function TasksPage() {
           {state.habits.length === 0 ? (
             <EmptyState
               title="Нет привычек"
-              text="Добавьте первую привычку"
+              text="Создайте первую привычку и начните её отслеживать"
               icon={
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
@@ -469,66 +400,17 @@ export function TasksPage() {
               }
             />
           ) : (
-            <div className="habit-list">
-              {state.habits.map(habit => {
-                const streak = calculateStreak(habit);
-                const weekPercent = calculateWeekPercent(habit);
-                const shouldDo = shouldDoHabitToday(habit);
-                const completed = isHabitCompletedToday(habit);
-                
-                return (
-                  <div key={habit.id} className="habit-item">
-                    <div className="habit-main">
-                      {shouldDo && (
-                        <Checkbox 
-                          checked={completed}
-                          onChange={() => handleToggleHabit(habit.id)}
-                        />
-                      )}
-                      <div className="habit-info">
-                        <span className={`habit-title ${completed ? 'line-through' : ''}`}>
-                          {habit.title}
-                        </span>
-                        {habit.minAmount && (
-                          <span className="habit-amount">{habit.minAmount}</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="habit-stats">
-                      <div className="habit-stat">
-                        <span className="stat-value">{streak}</span>
-                        <span className="stat-label">стрик</span>
-                      </div>
-                      <div className="habit-stat">
-                        <span className="stat-value">{weekPercent}%</span>
-                        <span className="stat-label">неделя</span>
-                      </div>
-                    </div>
-                    
-                    <div className="habit-actions">
-                      <button 
-                        className="btn-icon"
-                        onClick={() => { setEditingHabit(habit); setShowHabitForm(true); }}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                      </button>
-                      <button 
-                        className="btn-icon text-danger"
-                        onClick={() => handleDeleteHabit(habit.id)}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="habits-list">
+              {state.habits.map(habit => (
+                <HabitCard
+                  key={habit.id}
+                  habit={habit}
+                  isCompletedToday={isHabitCompletedToday(habit)}
+                  onToggle={() => handleToggleHabit(habit.id)}
+                  onEdit={() => { setEditingHabit(habit); setShowHabitModal(true); }}
+                  onDelete={() => handleDeleteHabit(habit.id)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -547,17 +429,12 @@ export function TasksPage() {
         />
       </Modal>
       
-      <Modal 
-        isOpen={showHabitForm} 
-        onClose={() => { setShowHabitForm(false); setEditingHabit(null); }}
-        title={editingHabit ? 'Редактировать привычку' : 'Новая привычка'}
-      >
-        <HabitForm
-          habit={editingHabit}
-          onSave={handleSaveHabit}
-          onCancel={() => { setShowHabitForm(false); setEditingHabit(null); }}
-        />
-      </Modal>
+      <CreateHabitModal
+        isOpen={showHabitModal}
+        onClose={() => { setShowHabitModal(false); setEditingHabit(null); }}
+        onSave={handleSaveHabit}
+        editingHabit={editingHabit}
+      />
       
       {breakdownTask && (
         <BreakdownModal

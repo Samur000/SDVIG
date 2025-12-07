@@ -65,20 +65,27 @@ export interface Task {
   completedAt?: string; // ISO string дата выполнения
 }
 
-// ============ Привычки ============
-export type HabitFrequency = 
-  | { type: 'daily' }
-  | { type: 'weekdays' }
-  | { type: 'specific'; days: DayOfWeek[] }
-  | { type: 'weekly'; times: number };
+// ============ Привычки (HabitKit style) ============
+export type HabitIcon = 
+  | 'book' | 'coding' | 'workout' | 'run' | 'meditate'
+  | 'drink-water' | 'sleep' | 'study' | 'reading' | 'finance'
+  | 'clean' | 'music' | 'walking' | 'yoga' | 'writing'
+  | 'cooking' | 'diet' | 'focus' | 'no-phone' | 'mood';
+
+export type HabitColor = 
+  | '#2f04fd' | '#cdc94e' | '#70cb19' | '#fa553f'
+  | '#cdef1e' | '#13b4ff' | '#ff8c00' | '#bb29e8';
 
 export interface Habit {
   id: string;
   title: string;
-  frequency: HabitFrequency;
-  minAmount?: string; // "10 минут", "5 страниц"
-  time?: string;
-  completedDates: string[]; // массив дат YYYY-MM-DD
+  description?: string;
+  icon: HabitIcon;
+  color: HabitColor;
+  records: string[]; // массив дат YYYY-MM-DD
+  streak: number;
+  bestStreak: number;
+  createdAt: string; // ISO string
 }
 
 // ============ Инбокс ============

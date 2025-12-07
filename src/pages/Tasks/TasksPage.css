@@ -135,95 +135,17 @@
   font-size: 14px;
 }
 
-/* Habits */
-.habit-list {
+/* Habits content */
+.habits-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.habit-item {
-  padding: 16px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
-.habit-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.habit-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.habit-title {
-  font-weight: 500;
-}
-
-.habit-amount {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.habit-stats {
-  display: flex;
   gap: 16px;
-  margin-bottom: 12px;
-  padding: 10px;
-  background: #F9FAFB;
-  border-radius: var(--radius-md);
 }
 
-.habit-stat {
+.habits-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.stat-label {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.habit-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.habit-actions .btn-icon {
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-}
-
-.habit-actions .btn-icon:hover {
-  background: #F3F4F6;
-  color: var(--text);
-}
-
-.habit-actions .btn-icon.text-danger:hover {
-  color: var(--danger);
-  background: #FEF2F2;
-}
-
-.habit-actions svg {
-  width: 18px;
-  height: 18px;
+  gap: 16px;
 }
 
 /* Add item button */
@@ -322,9 +244,6 @@
   background: var(--bg-secondary);
 }
 
-[data-theme="dark"] .habit-stats {
-  background: var(--bg-secondary);
-}
 
 [data-theme="dark"] .subtask-item {
   background: var(--bg-secondary);
@@ -334,15 +253,7 @@
   background: var(--bg-secondary);
 }
 
-[data-theme="dark"] .habit-actions .btn-icon:hover {
-  background: var(--bg-secondary);
-}
-
 [data-theme="dark"] .task-actions .btn-icon.text-danger:hover {
-  background: rgba(220, 38, 38, 0.15);
-}
-
-[data-theme="dark"] .habit-actions .btn-icon.text-danger:hover {
   background: rgba(220, 38, 38, 0.15);
 }
 

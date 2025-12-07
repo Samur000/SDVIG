@@ -57,11 +57,12 @@ type Action =
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'TOGGLE_TASK'; payload: string }
-  // Привычки
+  // Привычки (HabitKit style)
   | { type: 'ADD_HABIT'; payload: Habit }
   | { type: 'UPDATE_HABIT'; payload: Habit }
   | { type: 'DELETE_HABIT'; payload: string }
   | { type: 'TOGGLE_HABIT'; payload: { id: string; date: string } }
+  | { type: 'RECALCULATE_STREAKS' }
   // Инбокс
   | { type: 'ADD_IDEA'; payload: Idea }
   | { type: 'UPDATE_IDEA'; payload: Idea }
@@ -77,6 +78,46 @@ type Action =
   | { type: 'SET_THEME'; payload: Theme }
   // Общее
   | { type: 'LOAD_STATE'; payload: AppState };
+
+// Вспомогательная функция для расчёта streak
+function calculateHabitStreak(records: string[]): number {
+  if (records.length === 0) return 0;
+  
+  const sortedDates = [...records].sort().reverse();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const todayStr = today.toISOString().split('T')[0];
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  
+  // Streak начинается с сегодня или вчера
+  if (!sortedDates.includes(todayStr) && !sortedDates.includes(yesterdayStr)) {
+    return 0;
+  }
+  
+  let streak = 0;
+  let checkDate = new Date(today);
+  
+  // Если сегодня не выполнено, начинаем со вчера
+  if (!sortedDates.includes(todayStr)) {
+    checkDate = new Date(yesterday);
+  }
+  
+  for (let i = 0; i < 365; i++) {
+    const dateStr = checkDate.toISOString().split('T')[0];
+    if (sortedDates.includes(dateStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  
+  return streak;
+}
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -267,7 +308,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, tasks: newTasks };
     }
 
-    // Привычки
+    // Привычки (HabitKit style)
     case 'ADD_HABIT':
       return { ...state, habits: [...state.habits, action.payload] };
     case 'UPDATE_HABIT':
@@ -277,17 +318,38 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'DELETE_HABIT':
       return { ...state, habits: state.habits.filter(h => h.id !== action.payload) };
-    case 'TOGGLE_HABIT':
+    case 'TOGGLE_HABIT': {
+      const { id, date } = action.payload;
       return {
         ...state,
         habits: state.habits.map(h => {
-          if (h.id === action.payload.id) {
-            const dates = h.completedDates.includes(action.payload.date)
-              ? h.completedDates.filter(d => d !== action.payload.date)
-              : [...h.completedDates, action.payload.date];
-            return { ...h, completedDates: dates };
-          }
-          return h;
+          if (h.id !== id) return h;
+          
+          // Toggle the date in records
+          const isCompleted = h.records.includes(date);
+          const newRecords = isCompleted
+            ? h.records.filter(d => d !== date)
+            : [...h.records, date].sort();
+          
+          // Calculate new streak
+          const newStreak = calculateHabitStreak(newRecords);
+          const newBestStreak = Math.max(h.bestStreak, newStreak);
+          
+          return { 
+            ...h, 
+            records: newRecords,
+            streak: newStreak,
+            bestStreak: newBestStreak
+          };
+        })
+      };
+    }
+    case 'RECALCULATE_STREAKS':
+      return {
+        ...state,
+        habits: state.habits.map(h => {
+          const streak = calculateHabitStreak(h.records);
+          return { ...h, streak, bestStreak: Math.max(h.bestStreak, streak) };
         })
       };
 
