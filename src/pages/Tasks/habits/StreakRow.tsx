@@ -6,7 +6,7 @@ interface StreakRowProps {
   color: string;
 }
 
-export function StreakRow({ records, color, days }: StreakRowProps) {
+export function StreakRow({ records, color }: StreakRowProps) {
   const squares = useMemo(() => {
     const result: { date: string; completed: boolean }[] = [];
     const today = new Date();

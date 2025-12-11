@@ -89,9 +89,6 @@ function calculateHabitStreak(records: string[]): number {
   
   const todayStr = today.toISOString().split('T')[0];
   
-  // Определяем начальную дату для подсчета streak
-  let checkDate = new Date(today);
-  
   // Если сегодня выполнено, начинаем считать с сегодня
   if (sortedDates.includes(todayStr)) {
     // Считаем последовательные дни, включая сегодня
