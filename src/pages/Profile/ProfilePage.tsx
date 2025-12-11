@@ -14,39 +14,46 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const [showDocForm, setShowDocForm] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  // Фолбэки для старых/повреждённых данных из хранилища, чтобы не падать в проде
+  const profile = state.profile ?? { name: '', bio: '', goals: [] };
+  const wallets = state.wallets ?? [];
+  const tasks = state.tasks ?? [];
+  const habits = state.habits ?? [];
+  const focusSessions = state.focusSessions ?? [];
+  const documents = state.documents ?? [];
   
   // Финансы
   const totalBalance = useMemo(() => 
-    state.wallets.reduce((sum, w) => sum + w.balance, 0),
-    [state.wallets]
+    wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0),
+    [wallets]
   );
   
   const cashBalance = useMemo(() =>
-    state.wallets.filter(w => w.type === 'cash').reduce((sum, w) => sum + w.balance, 0),
-    [state.wallets]
+    wallets.filter(w => w.type === 'cash').reduce((sum, w) => sum + Number(w.balance || 0), 0),
+    [wallets]
   );
   
   const cardBalance = useMemo(() =>
-    state.wallets.filter(w => w.type === 'card').reduce((sum, w) => sum + w.balance, 0),
-    [state.wallets]
+    wallets.filter(w => w.type === 'card').reduce((sum, w) => sum + Number(w.balance || 0), 0),
+    [wallets]
   );
   
   // Статистика задач
   const weekTasks = useMemo(() => {
-    const tasks = state.tasks.filter(t => !t.parentId);
-    const completed = tasks.filter(t => t.completed).length;
-    const total = tasks.length;
+    const rootTasks = tasks.filter(t => !t.parentId);
+    const completed = rootTasks.filter(t => t.completed).length;
+    const total = rootTasks.length;
     return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
-  }, [state.tasks]);
+  }, [tasks]);
   
   // Статистика привычек
   const habitsStats = useMemo(() => {
-    if (state.habits.length === 0) return { avgPercent: 0 };
+    if (habits.length === 0) return { avgPercent: 0 };
     
     let totalPercent = 0;
     const today = new Date();
     
-    state.habits.forEach(habit => {
+    habits.forEach(habit => {
       let completed = 0;
       
       // Считаем выполненные дни за последние 7 дней
@@ -64,25 +71,31 @@ export function ProfilePage() {
       totalPercent += (completed / 7) * 100;
     });
     
-    return { avgPercent: Math.round(totalPercent / state.habits.length) };
-  }, [state.habits]);
+    return { avgPercent: Math.round(totalPercent / habits.length) };
+  }, [habits]);
   
   // Фокус-время за неделю
   const weekFocusTime = useMemo(() => {
-    const weekSessions = state.focusSessions.filter(s => isThisWeek(s.date.split('T')[0]));
-    const totalSeconds = weekSessions.reduce((sum, s) => sum + s.duration, 0);
+    const weekSessions = focusSessions.filter(
+      s => typeof s.date === 'string' && isThisWeek(s.date.split('T')[0])
+    );
+    const totalSeconds = weekSessions.reduce(
+      (sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 0),
+      0
+    );
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     return { hours, minutes, totalMinutes: Math.floor(totalSeconds / 60) };
-  }, [state.focusSessions]);
+  }, [focusSessions]);
   
   const formatMoney = (amount: number) => {
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'RUB',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(amount);
+    }).format(safeAmount);
   };
   
   const handleAddDocument = (doc: Document) => {
@@ -147,27 +160,27 @@ export function ProfilePage() {
       <div className="profile-card card">
         <div className="profile-header">
           <div className="profile-avatar">
-            {state.profile.avatar ? (
-              <img src={state.profile.avatar} alt="Аватар" />
+            {profile.avatar ? (
+              <img src={profile.avatar} alt="Аватар" />
             ) : (
-              state.profile.name ? state.profile.name[0].toUpperCase() : '?'
+              profile.name ? profile.name[0].toUpperCase() : '?'
             )}
           </div>
           <div className="profile-info">
             <h3 className="profile-name">
-              {state.profile.name || 'Не указано'}
+              {profile.name || 'Не указано'}
             </h3>
-            {state.profile.bio && (
-              <p className="profile-bio">{state.profile.bio}</p>
+            {profile.bio && (
+              <p className="profile-bio">{profile.bio}</p>
             )}
           </div>
         </div>
         
-        {state.profile.goals.length > 0 && (
+        {profile.goals?.length > 0 && (
           <div className="profile-goals">
             <span className="goals-label">Цели:</span>
             <div className="goals-list">
-              {state.profile.goals.map((goal, idx) => (
+              {profile.goals.map((goal, idx) => (
                 <span key={idx} className="chip">{goal}</span>
               ))}
             </div>
@@ -253,7 +266,7 @@ export function ProfilePage() {
           </button>
         </div>
         
-        {state.documents.length === 0 ? (
+        {documents.length === 0 ? (
           <EmptyState
             title="Нет документов"
             text="Добавьте важные документы"
@@ -266,7 +279,7 @@ export function ProfilePage() {
           />
         ) : (
           <div className="documents-grid">
-            {state.documents.map(doc => (
+            {documents.map(doc => (
               <div key={doc.id} className="document-card">
                 <div 
                   className="document-preview"
