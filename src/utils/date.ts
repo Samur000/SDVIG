@@ -8,7 +8,11 @@ const MONTH_NAMES = [
 ];
 
 export function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  // Используем локальную дату, а не UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function parseDate(dateStr: string): Date {

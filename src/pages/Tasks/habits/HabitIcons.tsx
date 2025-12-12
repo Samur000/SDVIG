@@ -154,16 +154,21 @@ export function HabitIconComponent({ icon, color = 'currentColor', size = 24 }: 
         <line x1="15" y1="9" x2="15.01" y2="9"/>
       </svg>
     ),
+    heart: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+      </svg>
+    ),
   };
 
   return iconMap[icon] || null;
 }
 
+// 21 иконка = сетка 7x3
 export const HABIT_ICONS: HabitIcon[] = [
-  'book', 'coding', 'workout', 'run', 'meditate',
-  'drink-water', 'sleep', 'study', 'reading', 'finance',
-  'clean', 'music', 'walking', 'yoga', 'writing',
-  'cooking', 'diet', 'focus', 'no-phone', 'mood'
+  'heart', 'workout', 'run', 'meditate', 'yoga', 'walking', 'drink-water',
+  'sleep', 'diet', 'cooking', 'clean', 'mood', 'focus', 'no-phone',
+  'book', 'reading', 'study', 'writing', 'coding', 'music', 'finance'
 ];
 
 export const HABIT_COLORS: string[] = [

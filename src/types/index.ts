@@ -70,7 +70,7 @@ export type HabitIcon =
   | 'book' | 'coding' | 'workout' | 'run' | 'meditate'
   | 'drink-water' | 'sleep' | 'study' | 'reading' | 'finance'
   | 'clean' | 'music' | 'walking' | 'yoga' | 'writing'
-  | 'cooking' | 'diet' | 'focus' | 'no-phone' | 'mood';
+  | 'cooking' | 'diet' | 'focus' | 'no-phone' | 'mood' | 'heart';
 
 export type HabitColor = 
   | '#2f04fd' | '#cdc94e' | '#70cb19' | '#fa553f'

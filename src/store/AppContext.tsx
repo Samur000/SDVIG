@@ -24,8 +24,17 @@ import {
 } from '../types';
 import { initStorage, saveStateAsync } from './storage';
 
-// Флаг для показа модалки обновления (показывается один раз)
-const UPDATE_MODAL_SHOWN_FLAG = 'sdvig_v2_update_shown';
+// Флаг для показа модалки установки PWA (показывается один раз)
+const INSTALL_PROMPT_SHOWN_FLAG = 'sdvig_install_prompt_shown';
+
+// Проверка, запущено ли приложение как PWA (standalone)
+function isRunningAsPWA(): boolean {
+  // Проверка для большинства браузеров
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  // Проверка для iOS Safari
+  const isIOSStandalone = (navigator as { standalone?: boolean }).standalone === true;
+  return isStandalone || isIOSStandalone;
+}
 
 // Action Types
 type Action =
@@ -79,24 +88,32 @@ type Action =
   // Общее
   | { type: 'LOAD_STATE'; payload: AppState };
 
+// Вспомогательная функция для форматирования даты в локальном часовом поясе
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Вспомогательная функция для расчёта streak
 function calculateHabitStreak(records: string[]): number {
-  if (records.length === 0) return 0;
+  if (!Array.isArray(records) || records.length === 0) return 0;
   
   const sortedDates = [...records].sort().reverse();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
   
   // Если сегодня выполнено, начинаем считать с сегодня
   if (sortedDates.includes(todayStr)) {
     // Считаем последовательные дни, включая сегодня
     let streak = 0;
-    let currentDate = new Date(today);
+    const currentDate = new Date(today);
     
     for (let i = 0; i < 365; i++) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(currentDate);
       if (sortedDates.includes(dateStr)) {
         streak++;
         currentDate.setDate(currentDate.getDate() - 1);
@@ -111,7 +128,7 @@ function calculateHabitStreak(records: string[]): number {
   // Если сегодня не выполнено, проверяем вчера
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = formatLocalDate(yesterday);
   
   if (!sortedDates.includes(yesterdayStr)) {
     return 0; // Нет streak
@@ -119,10 +136,10 @@ function calculateHabitStreak(records: string[]): number {
   
   // Считаем последовательные дни назад от вчера
   let streak = 0;
-  let currentDate = new Date(yesterday);
+  const currentDate = new Date(yesterday);
   
   for (let i = 0; i < 365; i++) {
-    const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = formatLocalDate(currentDate);
     if (sortedDates.includes(dateStr)) {
       streak++;
       currentDate.setDate(currentDate.getDate() - 1);
@@ -179,9 +196,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'MOVE_EVENT_TO_TOMORROW': {
       const event = state.events.find(e => e.id === action.payload);
       if (!event) return state;
-      const currentDate = new Date(event.date);
+      const currentDate = new Date(event.date + 'T00:00:00');
       currentDate.setDate(currentDate.getDate() + 1);
-      const newDate = currentDate.toISOString().split('T')[0];
+      const newDate = formatLocalDate(currentDate);
       return {
         ...state,
         events: state.events.map(e => 
@@ -337,18 +354,22 @@ function reducer(state: AppState, action: Action): AppState {
       const { id, date } = action.payload;
       return {
         ...state,
-        habits: state.habits.map(h => {
+        habits: (state.habits || []).map(h => {
           if (h.id !== id) return h;
           
+          // Защита от неполных данных
+          const currentRecords = Array.isArray(h.records) ? h.records : [];
+          const currentBestStreak = typeof h.bestStreak === 'number' ? h.bestStreak : 0;
+          
           // Toggle the date in records
-          const isCompleted = h.records.includes(date);
+          const isCompleted = currentRecords.includes(date);
           const newRecords = isCompleted
-            ? h.records.filter(d => d !== date)
-            : [...h.records, date].sort();
+            ? currentRecords.filter(d => d !== date)
+            : [...currentRecords, date].sort();
           
           // Calculate new streak
           const newStreak = calculateHabitStreak(newRecords);
-          const newBestStreak = Math.max(h.bestStreak, newStreak);
+          const newBestStreak = Math.max(currentBestStreak, newStreak);
           
           return { 
             ...h, 
@@ -362,9 +383,11 @@ function reducer(state: AppState, action: Action): AppState {
     case 'RECALCULATE_STREAKS':
       return {
         ...state,
-        habits: state.habits.map(h => {
-          const streak = calculateHabitStreak(h.records);
-          return { ...h, streak, bestStreak: Math.max(h.bestStreak, streak) };
+        habits: (state.habits || []).map(h => {
+          const records = Array.isArray(h.records) ? h.records : [];
+          const streak = calculateHabitStreak(records);
+          const bestStreak = typeof h.bestStreak === 'number' ? h.bestStreak : 0;
+          return { ...h, streak, bestStreak: Math.max(bestStreak, streak) };
         })
       };
 
@@ -414,9 +437,10 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 /**
- * Компонент модалки обновления
+ * Модалка предложения установить приложение как PWA
+ * Показывается только в браузере (не в standalone режиме)
  */
-function UpdateModal({ onClose }: { onClose: () => void }) {
+function InstallPromptModal({ onClose }: { onClose: () => void }) {
   return (
     <div style={{
       position: 'fixed',
@@ -448,18 +472,18 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
           <div style={{
             fontSize: '48px',
             marginBottom: '8px'
-          }}>🚀</div>
+          }}>📲</div>
           <h2 style={{
             color: 'white',
             fontSize: '22px',
             fontWeight: 700,
             margin: 0
-          }}>СДВиГ 2.0</h2>
+          }}>Установите приложение</h2>
           <p style={{
             color: 'rgba(255,255,255,0.9)',
             fontSize: '14px',
             margin: '8px 0 0 0'
-          }}>Добро пожаловать в новую версию!</p>
+          }}>Это займёт всего пару секунд</p>
         </div>
         
         {/* Контент */}
@@ -482,7 +506,7 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
               justifyContent: 'center',
               flexShrink: 0
             }}>
-              <span style={{ fontSize: '16px' }}>💾</span>
+              <span style={{ fontSize: '16px' }}>⚡</span>
             </div>
             <div>
               <h3 style={{
@@ -490,14 +514,14 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
                 fontWeight: 600,
                 color: 'var(--text, #1F2937)',
                 margin: '0 0 4px 0'
-              }}>Данные перенесены</h3>
+              }}>Быстрый доступ</h3>
               <p style={{
                 fontSize: '13px',
                 color: 'var(--muted, #6B7280)',
                 margin: 0,
                 lineHeight: 1.5
               }}>
-                Ваши данные успешно перенесены в новое хранилище IndexedDB для повышения надёжности и производительности.
+                Запускайте СДВиГ прямо с главного экрана — как обычное приложение.
               </p>
             </div>
           </div>
@@ -518,7 +542,7 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
               justifyContent: 'center',
               flexShrink: 0
             }}>
-              <span style={{ fontSize: '16px' }}>✨</span>
+              <span style={{ fontSize: '16px' }}>📴</span>
             </div>
             <div>
               <h3 style={{
@@ -526,21 +550,21 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
                 fontWeight: 600,
                 color: 'var(--text, #1F2937)',
                 margin: '0 0 4px 0'
-              }}>Что нового?</h3>
+              }}>Работает офлайн</h3>
               <p style={{
                 fontSize: '13px',
                 color: 'var(--muted, #6B7280)',
                 margin: 0,
                 lineHeight: 1.5
               }}>
-                Улучшенный интерфейс, новые функции и многое другое. Узнайте подробнее о всех изменениях.
+                Все данные хранятся локально. Интернет не нужен после установки.
               </p>
             </div>
           </div>
           
-          {/* Ссылка на страницу обновления */}
+          {/* Ссылка на инструкцию */}
           <a
-            href="https://samur000.github.io/SDVIG-INFO/changelog/v2.0"
+            href="https://samur000.github.io/SDVIG-INFO/#install"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -550,43 +574,13 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
               gap: '8px',
               width: '100%',
               padding: '14px',
-              background: 'var(--bg-secondary, #F3F4F6)',
-              borderRadius: '10px',
-              color: 'var(--accent, #0F766E)',
-              fontSize: '14px',
-              fontWeight: 600,
-              textDecoration: 'none',
-              marginBottom: '16px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'var(--accent-soft, #D1FAE5)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'var(--bg-secondary, #F3F4F6)';
-            }}
-          >
-            <span>Подробнее об обновлении</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </a>
-          
-          {/* Кнопка закрытия */}
-          <button
-            onClick={onClose}
-            style={{
-              width: '100%',
-              padding: '14px',
               background: 'linear-gradient(135deg, #0F766E 0%, #14B8A6 100%)',
-              border: 'none',
               borderRadius: '10px',
               color: 'white',
               fontSize: '15px',
               fontWeight: 600,
-              cursor: 'pointer',
+              textDecoration: 'none',
+              marginBottom: '12px',
               transition: 'transform 0.2s ease, box-shadow 0.2s ease'
             }}
             onMouseEnter={e => {
@@ -598,7 +592,37 @@ function UpdateModal({ onClose }: { onClose: () => void }) {
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            Понятно, начать работу
+            <span>Как установить?</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
+          
+          {/* Кнопка "Позже" */}
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%',
+              padding: '14px',
+              background: 'var(--bg-secondary, #F3F4F6)',
+              border: 'none',
+              borderRadius: '10px',
+              color: 'var(--muted, #6B7280)',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--border, #E5E7EB)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'var(--bg-secondary, #F3F4F6)';
+            }}
+          >
+            Позже
           </button>
         </div>
       </div>
@@ -627,7 +651,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   
   // Ref для отслеживания, нужно ли сохранять
   const isInitialMount = useRef(true);
@@ -653,12 +677,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         
         dispatch({ type: 'LOAD_STATE', payload: withDefaults });
+        
+        // Пересчитываем streak привычек при каждом запуске
+        // (streak мог устареть если пользователь пропустил день)
+        dispatch({ type: 'RECALCULATE_STREAKS' });
+        
         setIsLoaded(true);
         
-        // Проверяем, нужно ли показать модалку обновления
-        const updateModalShown = localStorage.getItem(UPDATE_MODAL_SHOWN_FLAG);
-        if (!updateModalShown) {
-          setShowUpdateModal(true);
+        // Показываем модалку установки только если:
+        // 1. Приложение открыто в браузере (не как PWA)
+        // 2. Модалка ещё не показывалась ранее
+        const installPromptShown = localStorage.getItem(INSTALL_PROMPT_SHOWN_FLAG);
+        if (!installPromptShown && !isRunningAsPWA()) {
+          setShowInstallPrompt(true);
         }
         
         console.log('AppContext: данные успешно загружены');
@@ -708,10 +739,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.documentElement.setAttribute('data-theme', theme);
   }, [state.settings?.theme]);
 
-  // ============ Закрытие модалки обновления ============
-  const handleCloseUpdateModal = () => {
-    localStorage.setItem(UPDATE_MODAL_SHOWN_FLAG, 'true');
-    setShowUpdateModal(false);
+  // ============ Закрытие модалки установки ============
+  const handleCloseInstallPrompt = () => {
+    localStorage.setItem(INSTALL_PROMPT_SHOWN_FLAG, 'true');
+    setShowInstallPrompt(false);
   };
 
   // ============ Экран загрузки ============
@@ -786,7 +817,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       {children}
-      {showUpdateModal && <UpdateModal onClose={handleCloseUpdateModal} />}
+      {showInstallPrompt && <InstallPromptModal onClose={handleCloseInstallPrompt} />}
     </AppContext.Provider>
   );
 }

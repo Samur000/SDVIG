@@ -1,53 +1,117 @@
 import { useMemo } from 'react';
 import './Habits.css';
 
-interface StreakRowProps {
+interface StreakGridProps {
   records: string[];
   color: string;
+  createdAt: string;
 }
 
-export function StreakRow({ records, color }: StreakRowProps) {
-  // Защита от undefined/null records
+// Форматирование даты в локальном часовом поясе
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+interface DayData {
+  date: string;
+  day: number;
+  completed: boolean;
+  isFuture: boolean;
+}
+
+interface MonthData {
+  key: string;
+  days: DayData[];
+}
+
+export function StreakRow({ records, color, createdAt }: StreakGridProps) {
   const safeRecords = Array.isArray(records) ? records : [];
   
-  const squares = useMemo(() => {
-    const result: { date: string; completed: boolean }[] = [];
+  const months = useMemo(() => {
+    const result: MonthData[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayStr = formatLocalDate(today);
     
-    // Начало текущего месяца
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    // Определяем startDate — дату первого выполнения привычки
+    let startDate: Date;
     
-    // Количество дней от начала месяца до сегодня
-    const daysInMonth = Math.floor((today.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (safeRecords.length > 0) {
+      // Берём самую раннюю дату из records
+      const sortedRecords = [...safeRecords].sort();
+      startDate = new Date(sortedRecords[0] + 'T00:00:00');
+    } else if (createdAt) {
+      // Если записей нет, но есть createdAt
+      const parsed = new Date(createdAt);
+      if (!isNaN(parsed.getTime())) {
+        startDate = new Date(parsed);
+        startDate.setHours(0, 0, 0, 0);
+      } else {
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      }
+    } else {
+      // Fallback — начало текущего месяца
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
     
-    // Генерируем квадраты от начала месяца до сегодня
-    for (let i = 0; i < daysInMonth; i++) {
-      const date = new Date(monthStart);
-      date.setDate(monthStart.getDate() + i);
-      const dateStr = date.toISOString().split('T')[0];
+    // Генерируем месяцы от startDate до сегодня
+    let currentMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const todayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    while (currentMonth <= todayMonth) {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+      
+      const days: DayData[] = [];
+      
+      // Генерируем все дни месяца
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dateStr = formatLocalDate(date);
+        const isFuture = isCurrentMonth && dateStr > todayStr;
+        
+        days.push({
+          date: dateStr,
+          day,
+          completed: safeRecords.includes(dateStr),
+          isFuture
+        });
+      }
+      
       result.push({
-        date: dateStr,
-        completed: safeRecords.includes(dateStr)
+        key: `${year}-${month}`,
+        days
       });
+      
+      currentMonth = new Date(year, month + 1, 1);
     }
     
     return result;
-  }, [safeRecords]);
+  }, [safeRecords, createdAt]);
 
   return (
-    <div className="streak-row">
-      {squares.map((sq, index) => (
-        <div
-          key={sq.date}
-          className={`streak-square ${sq.completed ? 'completed' : ''}`}
-          style={{
-            backgroundColor: sq.completed ? color : 'transparent',
-            borderColor: sq.completed ? color : 'var(--border)',
-            animationDelay: sq.completed ? `${index * 20}ms` : '0ms'
-          }}
-          title={sq.date}
-        />
+    <div className="streak-grid">
+      {months.map((monthData) => (
+        <div key={monthData.key} className="streak-month">
+          <div className="streak-row">
+            {monthData.days.map((sq) => (
+              <div
+                key={sq.date}
+                className={`streak-square ${sq.completed ? 'completed' : ''} ${sq.isFuture ? 'future' : ''}`}
+                style={{
+                  backgroundColor: sq.completed ? color : 'transparent',
+                  borderColor: sq.completed ? color : 'var(--border)'
+                }}
+                title={`${sq.day} — ${sq.completed ? 'выполнено' : sq.isFuture ? 'будущий день' : 'пропущено'}`}
+              />
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );

@@ -55,7 +55,7 @@ export function HabitCard({ habit, isCompletedToday, onToggle, onEdit, onDelete 
         </div>
       </div>
 
-      <StreakRow records={records} color={habit.color} />
+      <StreakRow records={records} color={habit.color} createdAt={habit.createdAt} />
 
       <div className="habit-card-actions">
         <button className="habit-action-btn" onClick={onEdit}>

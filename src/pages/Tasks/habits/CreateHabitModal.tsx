@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from '../../../components/Modal';
 import { Habit, HabitIcon, HabitColor } from '../../../types';
 import { HabitIconComponent, HABIT_ICONS, HABIT_COLORS } from './HabitIcons';
@@ -13,10 +13,27 @@ interface CreateHabitModalProps {
 }
 
 export function CreateHabitModal({ isOpen, onClose, onSave, editingHabit }: CreateHabitModalProps) {
-  const [title, setTitle] = useState(editingHabit?.title || '');
-  const [description, setDescription] = useState(editingHabit?.description || '');
-  const [icon, setIcon] = useState<HabitIcon>(editingHabit?.icon || 'book');
-  const [color, setColor] = useState<HabitColor>(editingHabit?.color || '#13b4ff');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState<HabitIcon>('book');
+  const [color, setColor] = useState<HabitColor>('#13b4ff');
+
+  // Сброс/заполнение формы при открытии модалки или смене editingHabit
+  useEffect(() => {
+    if (isOpen) {
+      if (editingHabit) {
+        setTitle(editingHabit.title);
+        setDescription(editingHabit.description || '');
+        setIcon(editingHabit.icon);
+        setColor(editingHabit.color);
+      } else {
+        setTitle('');
+        setDescription('');
+        setIcon('book');
+        setColor('#13b4ff');
+      }
+    }
+  }, [isOpen, editingHabit]);
 
   const handleSubmit = () => {
     if (!title.trim()) return;
@@ -34,24 +51,12 @@ export function CreateHabitModal({ isOpen, onClose, onSave, editingHabit }: Crea
     };
 
     onSave(habit);
-    handleClose();
-  };
-
-  const handleClose = () => {
-    setTitle('');
-    setDescription('');
-    setIcon('book');
-    setColor('#13b4ff');
     onClose();
   };
 
-  // Reset form when editing habit changes
-  if (editingHabit && title !== editingHabit.title) {
-    setTitle(editingHabit.title);
-    setDescription(editingHabit.description || '');
-    setIcon(editingHabit.icon);
-    setColor(editingHabit.color);
-  }
+  const handleClose = () => {
+    onClose();
+  };
 
   return (
     <Modal 
