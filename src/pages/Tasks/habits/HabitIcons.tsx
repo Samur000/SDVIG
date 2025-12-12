@@ -172,7 +172,8 @@ export const HABIT_ICONS: HabitIcon[] = [
 ];
 
 export const HABIT_COLORS: string[] = [
-  '#2f04fd', '#cdc94e', '#70cb19', '#fa553f',
-  '#cdef1e', '#13b4ff', '#ff8c00', '#bb29e8'
+  '#0F766E', '#13B4FF', '#2F04FD', '#BB29E8', '#FA553F', '#FF8C00', '#70CB19',
+  '#CDEF1E', '#CDC94E', '#FF5C8D', '#EF4444', '#06B6D4', '#2563EB', '#4338CA',
+  '#A855F7', '#84CC16', '#F59E0B', '#B45309', '#111827', '#6B7280', '#10B981'
 ];
 

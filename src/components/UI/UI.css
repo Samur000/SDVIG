@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--border);
+  border: 2px solid var(--checkbox-color, var(--border));
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
@@ -27,12 +27,13 @@
 }
 
 .checkbox:hover {
-  border-color: var(--accent);
+  border-color: var(--checkbox-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--checkbox-color, var(--accent)) 15%, transparent);
 }
 
 .checkbox.checked {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--checkbox-color, var(--accent));
+  border-color: var(--checkbox-color, var(--accent));
   animation: checkPop 0.3s ease;
 }
 

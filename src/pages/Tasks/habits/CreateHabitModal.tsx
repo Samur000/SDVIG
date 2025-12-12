@@ -116,7 +116,7 @@ export function CreateHabitModal({ isOpen, onClose, onSave, editingHabit }: Crea
         {/* Color selector */}
         <div className="habit-form-group">
           <label className="habit-form-label">Цвет</label>
-          <div className="habit-color-row">
+          <div className="habit-color-grid">
             {HABIT_COLORS.map((c) => (
               <button
                 key={c}

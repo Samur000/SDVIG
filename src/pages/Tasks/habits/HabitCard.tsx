@@ -40,6 +40,7 @@ export function HabitCard({ habit, isCompletedToday, onToggle, onEdit, onDelete 
           checked={isCompletedToday}
           onChange={onToggle}
           size="md"
+          color={habit.color}
         />
       </div>
 
