@@ -10,7 +10,63 @@
  * где всё состояние хранится как единый объект.
  */
 
-import { AppState, initialState } from '../types';
+import { AppState, initialState, Habit } from '../types';
+
+/**
+ * Нормализует данные привычки, добавляя отсутствующие поля
+ */
+function normalizeHabit(habit: Partial<Habit>): Habit {
+  return {
+    id: habit.id || '',
+    title: habit.title || '',
+    description: habit.description,
+    icon: habit.icon || 'book',
+    color: habit.color || '#2f04fd',
+    records: Array.isArray(habit.records) ? habit.records : [],
+    streak: typeof habit.streak === 'number' ? habit.streak : 0,
+    bestStreak: typeof habit.bestStreak === 'number' ? habit.bestStreak : 0,
+    createdAt: habit.createdAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Нормализует состояние приложения после импорта/загрузки
+ * Добавляет отсутствующие поля и исправляет структуру данных
+ */
+function normalizeState(state: Partial<AppState>): AppState {
+  const normalized: AppState = { ...initialState, ...state };
+  
+  // Нормализуем привычки
+  if (Array.isArray(normalized.habits)) {
+    normalized.habits = normalized.habits.map(normalizeHabit);
+  } else {
+    normalized.habits = [];
+  }
+  
+  // Нормализуем профиль
+  if (!normalized.profile || typeof normalized.profile !== 'object') {
+    normalized.profile = initialState.profile;
+  } else {
+    normalized.profile = {
+      name: normalized.profile.name || '',
+      bio: normalized.profile.bio || '',
+      goals: Array.isArray(normalized.profile.goals) ? normalized.profile.goals : [],
+      avatar: normalized.profile.avatar,
+    };
+  }
+  
+  // Нормализуем массивы
+  if (!Array.isArray(normalized.tasks)) normalized.tasks = [];
+  if (!Array.isArray(normalized.wallets)) normalized.wallets = initialState.wallets;
+  if (!Array.isArray(normalized.transactions)) normalized.transactions = [];
+  if (!Array.isArray(normalized.documents)) normalized.documents = [];
+  if (!Array.isArray(normalized.focusSessions)) normalized.focusSessions = [];
+  if (!Array.isArray(normalized.ideas)) normalized.ideas = [];
+  if (!Array.isArray(normalized.routines)) normalized.routines = [];
+  if (!Array.isArray(normalized.events)) normalized.events = [];
+  
+  return normalized;
+}
 
 const DB_NAME = 'sdvig-db';
 const DB_VERSION = 1;
@@ -87,9 +143,9 @@ export async function loadStateFromDB(): Promise<AppState> {
 
       request.onsuccess = () => {
         if (request.result) {
-          // Мержим с initialState чтобы добавить новые поля при обновлении
-          const mergedState = { ...initialState, ...request.result };
-          resolve(mergedState);
+          // Нормализуем данные для добавления новых полей и исправления структуры
+          const normalizedState = normalizeState(request.result);
+          resolve(normalizedState);
         } else {
           // Данных нет - возвращаем начальное состояние
           resolve(initialState);
@@ -201,8 +257,8 @@ export async function migrateFromLocalStorage(): Promise<boolean> {
     // Парсим данные
     const parsedData = JSON.parse(legacyData) as Partial<AppState>;
     
-    // Мержим с initialState для обеспечения полноты структуры
-    const fullState: AppState = { ...initialState, ...parsedData };
+    // Нормализуем данные для обеспечения полноты структуры
+    const fullState: AppState = normalizeState(parsedData);
 
     // Сохраняем в IndexedDB
     const saved = await saveStateToDB(fullState);
@@ -243,7 +299,7 @@ export async function initializeStorage(): Promise<AppState> {
       // Fallback на localStorage если миграция не удалась
       const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
       if (legacyData) {
-        return { ...initialState, ...JSON.parse(legacyData) };
+        return normalizeState(JSON.parse(legacyData));
       }
       return initialState;
     }
@@ -259,7 +315,7 @@ export async function initializeStorage(): Promise<AppState> {
       const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
       if (legacyData) {
         console.log('IndexedDB: используем fallback на localStorage');
-        return { ...initialState, ...JSON.parse(legacyData) };
+        return normalizeState(JSON.parse(legacyData));
       }
     } catch {
       // Игнорируем ошибки fallback
@@ -300,22 +356,25 @@ export async function exportAllData(): Promise<Record<string, unknown>> {
  */
 export async function importAllData(data: Record<string, unknown>): Promise<AppState> {
   try {
-    let stateToImport: AppState;
+    let rawState: Partial<AppState>;
     
     // Определяем формат импортируемых данных
     if (data._exportVersion === 2 && data.appState) {
       // Новый формат (IndexedDB export)
       console.log('Импорт: обнаружен новый формат (v2)');
-      stateToImport = { ...initialState, ...(data.appState as Partial<AppState>) };
+      rawState = data.appState as Partial<AppState>;
     } else if (data[LEGACY_STORAGE_KEY]) {
       // Старый формат (localStorage export) - ключ sdvig-app-state
       console.log('Импорт: обнаружен старый формат (localStorage)');
-      stateToImport = { ...initialState, ...(data[LEGACY_STORAGE_KEY] as Partial<AppState>) };
+      rawState = data[LEGACY_STORAGE_KEY] as Partial<AppState>;
     } else {
       // Попытка импортировать как прямой объект состояния
       console.log('Импорт: попытка прямого импорта');
-      stateToImport = { ...initialState, ...(data as Partial<AppState>) };
+      rawState = data as Partial<AppState>;
     }
+    
+    // Нормализуем данные (добавляем отсутствующие поля, исправляем структуру)
+    const stateToImport = normalizeState(rawState);
     
     // Сохраняем в IndexedDB
     const saved = await saveStateToDB(stateToImport);

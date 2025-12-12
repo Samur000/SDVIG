@@ -7,6 +7,9 @@ interface StreakRowProps {
 }
 
 export function StreakRow({ records, color }: StreakRowProps) {
+  // Защита от undefined/null records
+  const safeRecords = Array.isArray(records) ? records : [];
+  
   const squares = useMemo(() => {
     const result: { date: string; completed: boolean }[] = [];
     const today = new Date();
@@ -25,12 +28,12 @@ export function StreakRow({ records, color }: StreakRowProps) {
       const dateStr = date.toISOString().split('T')[0];
       result.push({
         date: dateStr,
-        completed: records.includes(dateStr)
+        completed: safeRecords.includes(dateStr)
       });
     }
     
     return result;
-  }, [records]);
+  }, [safeRecords]);
 
   return (
     <div className="streak-row">

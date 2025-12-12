@@ -13,7 +13,11 @@ interface HabitCardProps {
 }
 
 export function HabitCard({ habit, isCompletedToday, onToggle, onEdit, onDelete }: HabitCardProps) {
-  const isNewBestStreak = habit.streak === habit.bestStreak && habit.streak > 0;
+  // Защита от неполных данных привычки (после импорта старых бэкапов)
+  const streak = habit.streak ?? 0;
+  const bestStreak = habit.bestStreak ?? 0;
+  const records = Array.isArray(habit.records) ? habit.records : [];
+  const isNewBestStreak = streak === bestStreak && streak > 0;
 
   return (
     <div 
@@ -41,17 +45,17 @@ export function HabitCard({ habit, isCompletedToday, onToggle, onEdit, onDelete 
 
       <div className="habit-card-stats">
         <div className="habit-stat-item">
-          <span className="habit-stat-value" style={{ color: habit.color }}>{habit.streak}</span>
+          <span className="habit-stat-value" style={{ color: habit.color }}>{streak}</span>
           <span className="habit-stat-label">дней подряд</span>
         </div>
         <div className="habit-stat-divider" />
         <div className="habit-stat-item">
-          <span className="habit-stat-value">{habit.bestStreak}</span>
+          <span className="habit-stat-value">{bestStreak}</span>
           <span className="habit-stat-label">лучший</span>
         </div>
       </div>
 
-      <StreakRow records={habit.records} color={habit.color} />
+      <StreakRow records={records} color={habit.color} />
 
       <div className="habit-card-actions">
         <button className="habit-action-btn" onClick={onEdit}>

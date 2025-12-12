@@ -100,9 +100,11 @@ export function TasksPage() {
   const getSubtasks = (taskId: string) => 
     state.tasks.filter(t => t.parentId === taskId);
   
-  // Проверка выполнения привычки сегодня
-  const isHabitCompletedToday = (habit: Habit) => 
-    habit.records.includes(today);
+  // Проверка выполнения привычки сегодня (с защитой от неполных данных)
+  const isHabitCompletedToday = (habit: Habit) => {
+    const records = Array.isArray(habit.records) ? habit.records : [];
+    return records.includes(today);
+  };
   
   // Обработчики задач
   const handleToggleTask = (id: string) => {
@@ -136,7 +138,8 @@ export function TasksPage() {
   // Обработчики привычек
   const handleToggleHabit = (id: string) => {
     const habit = state.habits.find(h => h.id === id);
-    const willBeCompleted = habit && !habit.records.includes(today);
+    const habitRecords = habit && Array.isArray(habit.records) ? habit.records : [];
+    const willBeCompleted = habit && !habitRecords.includes(today);
     
     dispatch({ type: 'TOGGLE_HABIT', payload: { id, date: today } });
     
