@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const base = '/SDVIG-TEST2/';
+const base = '/SDVIG/';
 
 export default defineConfig({
 	base,
