@@ -1,1 +1,1 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/SDVIG-TEST2/sw.js', { scope: '/SDVIG-TEST2/' })})}
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/SDVIG/sw.js', { scope: '/SDVIG/' })})}
